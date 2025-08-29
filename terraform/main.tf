@@ -162,10 +162,21 @@ resource "aws_iam_role_policy_attachment" "lambda_logs" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# S3 Bucket Notification to trigger Lambda
+# S3 Bucket Notification to trigger Lambda functions
 resource "aws_s3_bucket_notification" "bucket_notification" {
   bucket = aws_s3_bucket.textract_bucket.id
 
+  # Email processor for emails/ folder
+  dynamic "lambda_function" {
+    for_each = var.enable_ses ? [1] : []
+    content {
+      lambda_function_arn = aws_lambda_function.email_processor[0].arn
+      events              = ["s3:ObjectCreated:*"]
+      filter_prefix       = "emails/"
+    }
+  }
+
+  # Textract processor for incoming/ folder
   lambda_function {
     lambda_function_arn = aws_lambda_function.textract_processor.arn
     events              = ["s3:ObjectCreated:*"]
@@ -173,13 +184,25 @@ resource "aws_s3_bucket_notification" "bucket_notification" {
     filter_suffix       = ".pdf"
   }
 
-  depends_on = [aws_lambda_permission.allow_bucket]
+  depends_on = [
+    aws_lambda_permission.allow_bucket,
+    aws_lambda_permission.allow_email_bucket
+  ]
 }
 
 resource "aws_lambda_permission" "allow_bucket" {
   statement_id  = "AllowExecutionFromS3Bucket"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.textract_processor.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.textract_bucket.arn
+}
+
+resource "aws_lambda_permission" "allow_email_bucket" {
+  count         = var.enable_ses ? 1 : 0
+  statement_id  = "AllowExecutionFromS3EmailBucket"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.email_processor[0].function_name
   principal     = "s3.amazonaws.com"
   source_arn    = aws_s3_bucket.textract_bucket.arn
 }

@@ -175,28 +175,9 @@ resource "aws_iam_role_policy_attachment" "email_lambda_logs" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# S3 trigger for email processing
-resource "aws_s3_bucket_notification" "email_notification" {
-  count  = var.enable_ses ? 1 : 0
-  bucket = aws_s3_bucket.textract_bucket.id
 
-  lambda_function {
-    lambda_function_arn = aws_lambda_function.email_processor[0].arn
-    events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "emails/"
-  }
 
-  depends_on = [aws_lambda_permission.allow_email_bucket[0]]
-}
 
-resource "aws_lambda_permission" "allow_email_bucket" {
-  count         = var.enable_ses ? 1 : 0
-  statement_id  = "AllowExecutionFromS3EmailBucket"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.email_processor[0].function_name
-  principal     = "s3.amazonaws.com"
-  source_arn    = aws_s3_bucket.textract_bucket.arn
-}
 
 # Email processor Lambda deployment package
 data "archive_file" "email_lambda_zip" {
