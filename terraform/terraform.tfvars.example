@@ -1,0 +1,60 @@
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Project Configuration
+project_name = "textract-poc"
+
+# LLM API Configuration
+llm_api_key = "your-api-key-here"
+llm_api_url = "https://api.openai.com/v1/chat/completions"
+
+# SES Email Configuration
+enable_ses = true
+ses_domain = "your-domain.com"
+ses_email_address = "documents@your-domain.com"
+manage_dns = false  # Set to true if using Route53 for DNS management
+
+# Email Configuration (SES)
+enable_ses = true
+
+# Option 1: Register a new domain via Route 53 (recommended for PoC)
+register_new_domain = true
+new_domain_name = "textract-poc-demo.com"        # Choose an available domain
+ses_email_address = "documents@textract-poc-demo.com"
+
+# Option 2: Use existing domain (set register_new_domain = false)
+# register_new_domain = false
+# ses_domain = "yourdomain.com"                   # Your existing domain
+# ses_email_address = "documents@yourdomain.com"  # Email on existing domain
+
+# Domain Registration Contact Information (required if register_new_domain = true)
+domain_contact_first_name = "John"
+domain_contact_last_name = "Doe"
+domain_contact_email = "admin@example.com"       # Your real email for domain contact
+domain_contact_phone = "+1.1234567890"           # Format: +1.1234567890
+domain_contact_address = "123 Main St"
+domain_contact_city = "Anytown"
+domain_contact_state = "CA"
+domain_contact_zip = "12345"
+domain_contact_country = "US"
+domain_contact_organization = "Textract PoC"
+
+# Example email addresses for different use cases:
+# ses_email_address = "invoices@textract-poc-demo.com"     # For invoice processing
+# ses_email_address = "contracts@textract-poc-demo.com"    # For contract analysis
+# ses_email_address = "receipts@textract-poc-demo.com"     # For receipt processing
+# ses_email_address = "forms@textract-poc-demo.com"        # For form processing
+
+# Example configurations for different LLM providers:
+
+# OpenAI
+# llm_api_url = "https://api.openai.com/v1/chat/completions"
+
+# Anthropic Claude
+# llm_api_url = "https://api.anthropic.com/v1/messages"
+
+# Custom API
+# llm_api_url = "https://your-custom-api.com/v1/process"
+
+# AWS Bedrock (if using Bedrock instead of external API)
+# llm_api_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
