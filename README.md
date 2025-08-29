@@ -1,23 +1,21 @@
 # AWS Textract PDF Processing PoC
 
-This Terraform configuration deploys a serverless architecture for processing PDF files via email using AWS Textract and LLM integration.
+This Terraform configuration deploys a complete serverless architecture for processing PDF files via email using AWS Textract and LLM integration.
 
 ## Architecture Overview
 
-![AWS Textract PDF Processing Architecture](./docs/assets/textract_architecture.png)
+![Workflow Diagram](WORKFLOW_DIAGRAM.md)
 
-The architecture implements a complete email-to-processing pipeline:
+The solution provides an end-to-end email-to-PDF processing pipeline:
+1. **Email Reception**: Users send PDFs to `documents@textract-poc-082025.info`
+2. **Automatic Processing**: SES → S3 → Lambda → Textract → LLM API
+3. **Results Storage**: JSON outputs stored in S3 with structured organization
 
-1. **Email Ingestion**: User sends email with PDF attachment to SES
-2. **Email Storage**: SES stores raw email in S3 `emails/` folder
-3. **PDF Extraction**: Email Processor Lambda extracts PDF attachments
-4. **PDF Storage**: PDFs saved to S3 `incoming/` folder
-5. **Document Processing**: Textract Processor Lambda triggered by S3 event
-6. **Text Extraction**: Amazon Textract extracts text from PDF
-7. **LLM Integration**: Extracted text sent to external LLM API for processing
-8. **Results Storage**: JSON outputs and LLM responses stored in S3 `processed/` folder
-9. **Monitoring**: CloudWatch logs all processing steps
-10. **Error Handling**: Failed processes sent to SQS Dead Letter Queue
+**Current Status**: ✅ **FULLY DEPLOYED AND OPERATIONAL**
+- Domain: `textract-poc-082025.info` (registered via Route 53)
+- Email endpoint: `documents@textract-poc-082025.info`
+- Complete DNS configuration with MX, DKIM, and verification records
+- All Lambda functions deployed and tested
 
 ## Project Structure
 
@@ -61,114 +59,81 @@ The architecture implements a complete email-to-processing pipeline:
 
 ## Deployment
 
-1. **Navigate to terraform directory**:
-   ```bash
-   cd terraform/
-   ```
+### Prerequisites
+- AWS CLI configured with profile `mcp-poc`
+- Terraform >= 1.0 installed
+- LLM API endpoint and key (OpenAI or compatible)
 
-2. **Configure variables** (optional):
-   ```bash
-   cp terraform.tfvars.example terraform.tfvars
-   # Edit terraform.tfvars with your values
-   ```
+### Quick Start (Infrastructure Already Deployed)
 
-3. **Deploy infrastructure**:
-   ```bash
-   terraform init
-   terraform plan
-   terraform apply
-   ```
+**Current Infrastructure Status**: ✅ Deployed and Ready
+- S3 Bucket: `textract-poc-textract-rab8wu80`
+- Domain: `textract-poc-082025.info` (Route 53 registered)
+- Lambda Functions: Email processor + Textract processor
+- SES Configuration: Complete email receiving setup
 
-4. **Update API credentials**:
-   ```bash
-   aws secretsmanager update-secret --secret-id textract-poc-llm-api-key \
-     --secret-string '{"api_key":"your-actual-api-key","api_url":"https://your-api-endpoint.com/v1/chat"}'
-   ```
+### Update LLM API Credentials
+```bash
+export AWS_PROFILE=mcp-poc
+aws secretsmanager update-secret --secret-id textract-poc-llm-api-key \
+  --secret-string '{"api_key":"your-openai-api-key","api_url":"https://api.openai.com/v1/chat/completions"}'
+```
+
+### Fresh Deployment (if needed)
+```bash
+cd terraform/
+export AWS_PROFILE=mcp-poc
+terraform init
+terraform plan -no-color
+terraform apply -no-color
+```
 
 ## Usage
 
-### Email-Based Processing (Primary Workflow)
+### Email-Based Processing (Ready to Use)
 
-#### Option 1: Register New Domain via Route 53 (Recommended for PoC)
+**✅ System is fully operational and ready for testing!**
 
-1. **Configure Domain Registration** (before deployment):
-   ```bash
-   cd terraform/
-   cp terraform.tfvars.example terraform.tfvars
-   # Edit terraform.tfvars and set:
-   register_new_domain = true
-   new_domain_name = "textract-poc-demo.com"  # Choose available domain
-   ses_email_address = "documents@textract-poc-demo.com"
-   
-   # Update contact information with your real details:
-   domain_contact_email = "your-email@example.com"
-   domain_contact_first_name = "Your Name"
-   # ... other contact fields
-   ```
+#### Send Test Email
+```
+To: documents@textract-poc-082025.info
+Subject: Process Document
+Attachment: test_document.pdf (or any PDF)
+```
 
-2. **Deploy Infrastructure**:
-   ```bash
-   terraform init
-   terraform apply
-   # Domain registration may take 15-30 minutes
-   # DNS records are automatically configured
-   ```
+#### Automatic Processing Flow
+1. **SES receives email** → stores in S3 `emails/` folder
+2. **Email Processor Lambda** extracts PDF → saves to `incoming/` folder  
+3. **Textract Processor Lambda** processes PDF → creates JSON → calls LLM API
+4. **Results stored** in `processed/` folder
 
-3. **Wait for Domain Propagation** (15-30 minutes):
-   - Domain registration completes automatically
-   - DNS records are automatically created in Route 53
-   - SES domain verification happens automatically
+#### Monitor Processing
+```bash
+export AWS_PROFILE=mcp-poc
+# Watch email processing
+aws logs tail /aws/lambda/textract-poc-email-processor --follow
+# Watch Textract processing
+aws logs tail /aws/lambda/textract-poc-textract-processor --follow
+```
 
-4. **Send Email with PDF Attachment**:
-   ```
-   To: documents@textract-poc-demo.com  # Your new domain email
-   Subject: Process this document
-   Attachment: document.pdf
-   ```
-
-#### Option 2: Use Existing Domain
-
-1. **Configure Existing Domain**:
-   ```bash
-   cd terraform/
-   cp terraform.tfvars.example terraform.tfvars
-   # Edit terraform.tfvars and set:
-   register_new_domain = false
-   ses_domain = "yourdomain.com"
-   ses_email_address = "documents@yourdomain.com"
-   ```
-
-2. **Deploy Infrastructure**:
-   ```bash
-   terraform apply
-   # Note the DNS configuration outputs
-   ```
-
-3. **Configure DNS Records** (in your domain provider):
-   - **Domain Verification**: Add TXT record with verification token from terraform output
-   - **DKIM Authentication**: Add CNAME records for DKIM tokens from terraform output  
-   - **MX Record**: Point to your AWS region's SES endpoint
-
-#### Automatic Processing Flow (Both Options):
-- SES receives email → stores in S3 `emails/` folder
-- Email Processor Lambda extracts PDF → saves to `incoming/` folder  
-- Textract Processor Lambda processes PDF → creates JSON → calls LLM API
-- Results stored in `processed/` folder
+#### Check Results
+```bash
+aws s3 ls s3://textract-poc-textract-rab8wu80/processed/
+```
 
 ### Manual Testing (Alternative)
 
-1. **Upload PDF files** directly to S3 for testing:
+1. **Upload PDF directly** to S3 for testing:
    ```bash
-   aws s3 cp document.pdf s3://your-bucket-name/incoming/document.pdf
+   export AWS_PROFILE=mcp-poc
+   aws s3 cp test_document.pdf s3://textract-poc-textract-rab8wu80/incoming/
    ```
 
-2. **Monitor processing** via CloudWatch logs:
+2. **Monitor processing** and **check results**:
    ```bash
    aws logs tail /aws/lambda/textract-poc-textract-processor --follow
-   aws logs tail /aws/lambda/textract-poc-email-processor --follow
+   aws s3 ls s3://textract-poc-textract-rab8wu80/processed/
    ```
-
-3. **Check results** in the `processed/` prefix of the S3 bucket
 
 ## S3 Bucket Structure
 
@@ -194,15 +159,22 @@ processed/          # JSON outputs from Textract
 
 ## Configuration
 
+### Current Deployment Settings
+- **AWS Region**: us-east-1
+- **Project Name**: textract-poc
+- **S3 Bucket**: textract-poc-textract-rab8wu80
+- **Domain**: textract-poc-082025.info
+- **Email**: documents@textract-poc-082025.info
+
 ### Environment Variables (Lambda)
 - `BUCKET_NAME`: S3 bucket name
 - `API_SECRET_NAME`: Secrets Manager secret name
 
-### Terraform Variables
-- `aws_region`: AWS region (default: us-east-1)
-- `project_name`: Resource name prefix (default: textract-poc)
-- `llm_api_key`: LLM API key (sensitive)
-- `llm_api_url`: LLM API endpoint URL
+### DNS Configuration (Route 53)
+- **MX Record**: `10 inbound-smtp.us-east-1.amazonaws.com`
+- **Domain Verification**: TXT record for SES
+- **DKIM Authentication**: 3 CNAME records
+- **SPF/DMARC**: Email security policies
 
 ## Security Features
 
@@ -222,18 +194,24 @@ processed/          # JSON outputs from Textract
 
 1. **Check Lambda logs**:
    ```bash
+   export AWS_PROFILE=mcp-poc
    aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/textract-poc"
    ```
 
-2. **Verify S3 permissions**:
+2. **Verify S3 bucket access**:
    ```bash
-   aws s3 ls s3://your-bucket-name/
+   aws s3 ls s3://textract-poc-textract-rab8wu80/
    ```
 
-3. **Test Textract access**:
+3. **Test Textract directly**:
    ```bash
-   aws textract detect-document-text --document '{"S3Object":{"Bucket":"your-bucket","Name":"incoming/test.pdf"}}'
+   aws textract detect-document-text --document '{"S3Object":{"Bucket":"textract-poc-textract-rab8wu80","Name":"incoming/test_document.pdf"}}'
    ```
+
+4. **Common Issues**:
+   - **401 LLM API Error**: Update API key in Secrets Manager
+   - **Email not received**: Check domain DNS propagation
+   - **PDF not processed**: Verify file is in `incoming/` folder
 
 ## Cost Optimization
 
@@ -246,14 +224,23 @@ processed/          # JSON outputs from Textract
 
 ```bash
 cd terraform/
-terraform destroy
+export AWS_PROFILE=mcp-poc
+terraform destroy -no-color
 ```
+
+**Note**: Domain registration cannot be automatically deleted and will continue to incur charges until manually cancelled in Route 53.
+
+## Testing Files
+
+- **test_document.pdf**: Sample invoice PDF for testing (created automatically)
+- **WORKFLOW_DIAGRAM.md**: Complete architecture and workflow documentation
 
 ## Next Steps for Production
 
-1. Add SES email domain configuration
-2. Implement email parsing for attachments
+1. ✅ ~~Add SES email domain configuration~~ (Complete)
+2. ✅ ~~Implement email parsing for attachments~~ (Complete)
 3. Add API Gateway for webhook integration
 4. Configure VPC for enhanced security
 5. Add monitoring dashboards
 6. Implement backup and disaster recovery
+7. Add email notification for processing completion
