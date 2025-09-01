@@ -88,14 +88,57 @@ def lambda_handler(event, context):
         raise e
 
 def extract_text_from_textract(textract_response):
-    """Extract and concatenate text from Textract response"""
-    text_blocks = []
-    
-    for block in textract_response['Blocks']:
-        if block['BlockType'] == 'LINE':
-            text_blocks.append(block['Text'])
-    
-    return '\n'.join(text_blocks)
+    words = [
+        {
+            "text": block["Text"],
+            "left": block["Geometry"]["BoundingBox"]["Left"],
+            "top": block["Geometry"]["BoundingBox"]["Top"],
+            "width": block["Geometry"]["BoundingBox"]["Width"],
+        }
+        for block in textract_response["Blocks"]
+        if block["BlockType"] == "WORD"
+    ]
+    words.sort(key=lambda x: (x["top"], x["left"]))
+
+    lines = []
+    current_line = []
+    current_line_top = None
+    line_spacing_threshold = 0.005  # Adjust for line detection
+
+    for word in words:
+        if (
+            current_line_top is None
+            or abs(word["top"] - current_line_top) < line_spacing_threshold
+        ):
+            current_line.append(word)
+            current_line_top = word["top"]
+        else:
+            current_line.sort(key=lambda x: x["left"])
+            lines.append(current_line)
+            current_line = [word]
+            current_line_top = word["top"]
+    if current_line:
+        current_line.sort(key=lambda x: x["left"])
+        lines.append(current_line)
+
+    formatted_text = ""
+    space_threshold = 0.0000000001  # Adjust this threshold for word spacing
+
+    for line in lines:
+        line_text = ""
+        prev_word = None
+
+        for word in line:
+            if prev_word:
+                space_gap = word["left"] - (prev_word["left"] + prev_word["width"])
+                if space_gap > space_threshold:
+                    line_text += " "
+            line_text += word["text"]
+            prev_word = word
+
+        formatted_text += line_text + "\n"
+
+    return formatted_text.strip()
 
 def send_to_llm_api(json_data):
     """Send extracted JSON to LLM API for processing"""
