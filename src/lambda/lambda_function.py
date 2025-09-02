@@ -158,7 +158,7 @@ def send_to_llm_api(json_data):
         }
         
         payload = {
-            'model': 'gpt-3.5-turbo',  # Adjust based on your LLM service
+            'model': 'saia:agent:InvoiceIQ',  # Adjust based on your LLM service
             'messages': [
                 {
                     'role': 'system',
