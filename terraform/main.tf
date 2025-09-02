@@ -71,6 +71,7 @@ resource "aws_lambda_function" "textract_processor" {
   handler         = "lambda_function.lambda_handler"
   runtime         = "python3.9"
   timeout         = 300
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
   dead_letter_config {
     target_arn = aws_sqs_queue.textract_dlq.arn

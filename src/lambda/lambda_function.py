@@ -67,13 +67,15 @@ def lambda_handler(event, context):
             # Send to LLM API
             llm_response = send_to_llm_api(json_data)
             
-            # Store LLM response
+            # Store LLM response content only
             if llm_response:
-                response_key = json_key.replace('.json', '_llm_response.json')
+                filename = object_key.split('/')[-1].replace('.pdf', '.json')
+                response_key = f"llm_response/{filename}"
+                processed_content = extract_llm_content(llm_response)
                 s3_client.put_object(
                     Bucket=bucket_name,
                     Key=response_key,
-                    Body=json.dumps(llm_response, indent=2),
+                    Body=json.dumps(processed_content, indent=2),
                     ContentType='application/json'
                 )
                 print(f"LLM response stored at: {response_key}")
@@ -139,6 +141,32 @@ def extract_text_from_textract(textract_response):
         formatted_text += line_text + "\n"
 
     return formatted_text.strip()
+
+def extract_llm_content(llm_response):
+    """Extract and parse the content from LLM response"""
+    try:
+        # Get the content from the first choice
+        content = llm_response['choices'][0]['message']['content']
+        
+        # Extract JSON from markdown code block if present
+        if '```json' in content:
+            start = content.find('```json') + 7
+            end = content.find('```', start)
+            json_str = content[start:end].strip()
+        elif '```' in content:
+            start = content.find('```') + 3
+            end = content.find('```', start)
+            json_str = content[start:end].strip()
+        else:
+            json_str = content.strip()
+        
+        # Parse the JSON content
+        return json.loads(json_str)
+        
+    except Exception as e:
+        print(f"Error extracting LLM content: {str(e)}")
+        # Return the raw content if parsing fails
+        return {"raw_content": llm_response.get('choices', [{}])[0].get('message', {}).get('content', '')}
 
 def send_to_llm_api(json_data):
     """Send extracted JSON to LLM API for processing"""
