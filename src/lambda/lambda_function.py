@@ -158,17 +158,14 @@ def send_to_llm_api(json_data):
         }
         
         payload = {
-            'model': 'saia:agent:InvoiceIQ',  # Adjust based on your LLM service
+            'model': 'saia:agent:InvoiceIQ',
             'messages': [
-                {
-                    'role': 'system',
-                    'content': 'You are a document processing assistant. Analyze the extracted text and provide insights or take actions based on the content.'
-                },
                 {
                     'role': 'user',
                     'content': f'Please analyze this extracted document text: {json_data["extracted_text"]}'
                 }
-            ]
+            ],
+            'stream': False
         }
         
         # Make API request using urllib
